@@ -16,7 +16,6 @@ $(MYBUILDDIR)/simpleforktest.o: \
  $(INSTALLTOP)/include/kern/wait.h \
  $(INSTALLTOP)/include/string.h \
  $(INSTALLTOP)/include/stdlib.h \
- $(INSTALLTOP)/include/stdio.h \
  $(INSTALLTOP)/include/errno.h \
  $(INSTALLTOP)/include/kern/errno.h
 
