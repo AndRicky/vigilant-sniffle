@@ -443,5 +443,32 @@ lpage_fault(struct lpage *lp, struct addrspace *as, int faulttype, vaddr_t va)
 void
 lpage_evict(struct lpage *lp)
 {
-	(void)lp;	// suppress compiler warning until code gets written
+	// (void)lp;	// suppress compiler warning until code gets written
+	
+	lpage_lock(lp);
+
+	//physical address and swap address
+	paddr_t lpage_address = lp->lp_paddr & PAGE_FRAME;
+	off_t swap_address = lp->lp_swapaddr;
+
+	//check page is valid, pinned and global lock held
+	KASSERT(lpage_address != INVALID_PADDR);
+	KASSERT(coremap_pageispinned(lpage_address));
+	KASSERT(lock_do_i_hold(global_paging_lock));
+
+	//check if swap is valid
+	KASSERT(swap_address != INVALID_SWAPADDR);
+
+	//page goes to swap and cleared if its dirty
+	if (LP_ISDIRTY(lp)) {
+		lpage_unlock(lp);
+		swap_pageout(lpage_address, swap_address);
+		LP_CLEAR(lp, LPF_DIRTY);
+		lpage_lock(lp);
+	}
+
+	//make physical address invalid to "evict" it
+	lp->lp_paddr = INVALID_PADDR;
+	lpage_unlock(lp);
+
 }
