@@ -422,11 +422,52 @@ lpage_zerofill(struct lpage **lpret)
 int
 lpage_fault(struct lpage *lp, struct addrspace *as, int faulttype, vaddr_t va)
 {
-	(void)lp;	// suppress compiler warning until code gets written
-	(void)as;	// suppress compiler warning until code gets written
-	(void)faulttype;// suppress compiler warning until code gets written
-	(void)va;	// suppress compiler warning until code gets written
-	return EUNIMP;	// suppress compiler warning until code gets written
+	lpage_lock_and_pin(lp);
+
+	paddr_t pa = lp -> lp_paddr & PAGE_FRAME;
+	off_t swa = lp -> lp_swapaddr;
+
+	if(faulttype == VM_FAULT_READ){
+
+		if (pa == INVALID_PADDR){
+			//check the swap address is valid
+			KASSERT(swa != INVALID_SWAPADDR);
+			lpage_unlock(lp);
+
+			//allocate the physical memory
+			pa = coremap_allocuser(lp);
+
+			//check pa is pinned
+			KASSERT(coremap_pageispinned(pa));
+			lock_acquire(global_paging_lock);
+			swap_pagein(pa,swa);
+
+			lpage_lock(lp);
+			lock_release(global_paging_lock);
+
+			//check the page didn't get other people swap in
+			KASSERT((lp->lp_paddr & PAGE_FRAME) == INVALID_PADDR);
+
+			//set the paddr to real pa
+			lp->lp_paddr = pa;
+		}
+
+		lpage_unlock(lp);
+		mmu_map(as, va, pa, LP_ISDIRTY(lp));
+
+	}
+	//if the fault type is readonly, set the dirty bit to 1
+	else if((faulttype == VM_FAULT_READONLY)  || (faulttype == VM_FAULT_WRITE)){
+		LP_SET(lp, LPF_DIRTY);
+		lpage_unlock(lp);
+		mmu_map(as, va, pa, LPF_DIRTY);
+	}
+	//if the fault type doesn't match release the lock
+	else{
+		lpage_unlock(lp);
+	}
+
+	return 0;	// suppress compiler warning until code gets written	
 }
 
 /*
@@ -443,7 +484,7 @@ lpage_fault(struct lpage *lp, struct addrspace *as, int faulttype, vaddr_t va)
 void
 lpage_evict(struct lpage *lp)
 {
-	// (void)lp;	// suppress compiler warning until code gets written
+	//(void)lp;	// suppress compiler warning until code gets written
 	
 	lpage_lock(lp);
 
@@ -463,6 +504,7 @@ lpage_evict(struct lpage *lp)
 	if (LP_ISDIRTY(lp)) {
 		lpage_unlock(lp);
 		swap_pageout(lpage_address, swap_address);
+		// set_lastpage_evicted(lp->lp_paddr);
 		LP_CLEAR(lp, LPF_DIRTY);
 		lpage_lock(lp);
 	}
@@ -470,5 +512,4 @@ lpage_evict(struct lpage *lp)
 	//make physical address invalid to "evict" it
 	lp->lp_paddr = INVALID_PADDR;
 	lpage_unlock(lp);
-
 }

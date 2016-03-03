@@ -86,5 +86,6 @@ void coremap_copy_page(paddr_t oldpaddr, paddr_t newpaddr);
 void coremap_bootstrap(void);
 void coremap_print_short(void);
 void coremap_print_long(void);
+// void set_lastpage_evicted (int index);
 
 #endif /* _MIPS_COREMAP_H_ */

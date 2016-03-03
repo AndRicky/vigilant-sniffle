@@ -120,6 +120,9 @@ static volatile uint32_t ct_shootdowns_sent;
 static volatile uint32_t ct_shootdowns_done;
 static volatile uint32_t ct_shootdown_interrupts;
 
+// int to keep track of the index of last page that is evicted.
+volatile uint32_t index_last_page_evicted;
+
 ////////////////////////////////////////////////////////////
 //
 // Per-CPU data
@@ -350,23 +353,36 @@ mipstlb_getslot(void)
  * coremap (for the selected victim page).
  */
 
-#if OPT_RANDPAGE
+// #if OPT_RANDPAGE
 
-/*
- * Random page replacement.
- *
- * Repeatedly generates a random index into the coremap until the 
- * selected page is not pinned and does not belong to the kernel.
- */
-static
-uint32_t 
-page_replace(void)
-{
-    // Complete this function.
-	return 0;
-}
+// /*
+//  * Random page replacement.
+//  *
+//  * Repeatedly generates a random index into the coremap until the 
+//  * selected page is not pinned and does not belong to the kernel.
+//  */
+// static
+// uint32_t 
+// page_replace(void)
+// {
+//     // Complete this function.
+//     //createa random index between 0 and of total number of entries in coremap
+//     unsigned index = random(0, num_coremap_entries);
+//     int count = 1;
+//     // if the selected page is pinned or it belong to the kernel, we create another one
+//     while(coremap[index].cm_pinned || coremap[index].cm_kernel) {
+//     	// Maximum times for trying out random number is 10 for now
+//     	if (count > 10) {
+//     		return -1;
+//     	}
+//     	count++;
+//     	index = random(0, num_coremap_entries);
+//     }
+//     DEBUG(DB_TLB, "page_replace: replacing page %d\n", index);
+// 	return index;
+// }
 
-#else /* not OPT_RANDPAGE */
+// #else /* not OPT_RANDPAGE */
 
 /*
  * Sequential page replacement.
@@ -380,10 +396,30 @@ uint32_t
 page_replace(void)
 {
 	// Complete this function.
-	return 0;
+	unsigned index = index_last_page_evicted + 1;
+	if (index > num_coremap_entries) {
+		index = 0;
+	}
+	while (coremap[index].cm_pinned || coremap[index].cm_kernel) {
+		if (index > num_coremap_entries) {
+			index = 0;
+		}
+
+		if (index == index_last_page_evicted) {
+			return -1;
+		}
+		index++;
+	}
+	DEBUG(DB_TLB, "page_replace: replacing page %d\n", index);
+	index_last_page_evicted = index;
+	return index;
 }
 
-#endif /* OPT_RANDPAGE */
+// #endif /* OPT_RANDPAGE */
+
+// static void set_lastpage_evicted (int index) {
+// 	index_last_page_evicted = index;
+// }
 
 
 ////////////////////////////////////////////////////////////
@@ -463,6 +499,7 @@ coremap_bootstrap(void)
 	num_coremap_kernel = 0;
 	num_coremap_user = 0;
 	num_coremap_free = num_coremap_entries;
+	index_last_page_evicted = -1;
 
 	KASSERT(num_coremap_entries + (coremapsize/PAGE_SIZE) == npages);
 
