@@ -14,11 +14,30 @@ cd ~/cscc69/root/
 sys161 kernel
 
 
+cd ~/cscc69/root/
+rm -rf *
 cd ~/cscc69w16_space/Assignments/2/vigilant-sniffle/a2
 ./configure --ostree=$HOME/cscc69/root
 cd kern/conf
 ./config ASST2-NORAND
 cd ../compile/ASST2-NORAND
+bmake depend
+bmake
+bmake install
+cd ../../..
+bmake
+bmake install
+cp sys161.conf ~/cscc69/root
+cd ~/cscc69/root/
+sys161 kernel
+
+cd ~/cscc69/root/
+rm -rf *
+cd ~/cscc69w16_space/Assignments/2/vigilant-sniffle/a2
+./configure --ostree=$HOME/cscc69/root
+cd kern/conf
+./config ASST2-RAND
+cd ../compile/ASST2-RAND
 bmake depend
 bmake
 bmake install
