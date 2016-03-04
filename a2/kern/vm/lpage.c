@@ -427,31 +427,27 @@ lpage_fault(struct lpage *lp, struct addrspace *as, int faulttype, vaddr_t va)
 	paddr_t pa = lp -> lp_paddr & PAGE_FRAME;
 	off_t swa = lp -> lp_swapaddr;
 
+	if (pa == INVALID_PADDR){
+		//check the swap address is valid
+		KASSERT(swa != INVALID_SWAPADDR);
+		lpage_unlock(lp);
+
+		//allocate the physical memory
+		pa = coremap_allocuser(lp);
+
+		//check pa is pinned
+		KASSERT(coremap_pageispinned(pa));
+		lock_acquire(global_paging_lock);
+		swap_pagein(pa,swa);
+		lpage_lock(lp);
+		lock_release(global_paging_lock);
+		//check the page didn't get other people swap in
+		KASSERT((lp->lp_paddr & PAGE_FRAME) == INVALID_PADDR);
+		//set the paddr to real pa
+		lp->lp_paddr = pa;
+	}
+
 	if(faulttype == VM_FAULT_READ){
-
-		if (pa == INVALID_PADDR){
-			//check the swap address is valid
-			KASSERT(swa != INVALID_SWAPADDR);
-			lpage_unlock(lp);
-
-			//allocate the physical memory
-			pa = coremap_allocuser(lp);
-
-			//check pa is pinned
-			KASSERT(coremap_pageispinned(pa));
-			lock_acquire(global_paging_lock);
-			swap_pagein(pa,swa);
-
-			lpage_lock(lp);
-			lock_release(global_paging_lock);
-
-			//check the page didn't get other people swap in
-			KASSERT((lp->lp_paddr & PAGE_FRAME) == INVALID_PADDR);
-
-			//set the paddr to real pa
-			lp->lp_paddr = pa;
-		}
-
 		lpage_unlock(lp);
 		mmu_map(as, va, pa, LP_ISDIRTY(lp));
 
@@ -460,7 +456,8 @@ lpage_fault(struct lpage *lp, struct addrspace *as, int faulttype, vaddr_t va)
 	else if((faulttype == VM_FAULT_READONLY)  || (faulttype == VM_FAULT_WRITE)){
 		LP_SET(lp, LPF_DIRTY);
 		lpage_unlock(lp);
-		mmu_map(as, va, pa, LPF_DIRTY);
+		//mmu_unmap(as, va);
+		mmu_map(as, va, pa, LP_ISDIRTY(lp));
 	}
 	//if the fault type doesn't match release the lock
 	else{

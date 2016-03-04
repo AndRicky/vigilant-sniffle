@@ -353,7 +353,7 @@ mipstlb_getslot(void)
  * coremap (for the selected victim page).
  */
 
-// #if OPT_RANDPAGE
+#if OPT_RANDPAGE
 
 // /*
 //  * Random page replacement.
@@ -361,28 +361,28 @@ mipstlb_getslot(void)
 //  * Repeatedly generates a random index into the coremap until the 
 //  * selected page is not pinned and does not belong to the kernel.
 //  */
-// static
-// uint32_t 
-// page_replace(void)
-// {
-//     // Complete this function.
-//     //createa random index between 0 and of total number of entries in coremap
-//     unsigned index = random(0, num_coremap_entries);
-//     int count = 1;
-//     // if the selected page is pinned or it belong to the kernel, we create another one
-//     while(coremap[index].cm_pinned || coremap[index].cm_kernel) {
-//     	// Maximum times for trying out random number is 10 for now
-//     	if (count > 10) {
-//     		return -1;
-//     	}
-//     	count++;
-//     	index = random(0, num_coremap_entries);
-//     }
-//     DEBUG(DB_TLB, "page_replace: replacing page %d\n", index);
-// 	return index;
-// }
+static
+uint32_t 
+page_replace(void)
+{
+    // Complete this function.
+    //createa random index between 0 and of total number of entries in coremap
+    unsigned index = random() % (num_coremap_entries -1);
+    int count = 1;
+    // if the selected page is pinned or it belong to the kernel, we create another one
+    while(coremap[index].cm_pinned || coremap[index].cm_kernel) {
+    	// Maximum times for trying out random number is 10 for now
+    	if (count > 10000) {
+    		return -1;
+    	}
+    	count++;
+    	index = random() % (num_coremap_entries - 1);
+    }
+    DEBUG(DB_TLB, "page_replace: replacing page %d\n", index);
+	return index;
+}
 
-// #else /* not OPT_RANDPAGE */
+#else /* not OPT_RANDPAGE */
 
 /*
  * Sequential page replacement.
@@ -397,29 +397,24 @@ page_replace(void)
 {
 	// Complete this function.
 	unsigned index = index_last_page_evicted + 1;
-	if (index > num_coremap_entries) {
+	if (index > (num_coremap_entries - 1)) {
 		index = 0;
 	}
 	while (coremap[index].cm_pinned || coremap[index].cm_kernel) {
-		if (index > num_coremap_entries) {
-			index = 0;
-		}
-
 		if (index == index_last_page_evicted) {
 			return -1;
 		}
 		index++;
+		if (index > (num_coremap_entries  - 1)) {
+			index = 0;
+		}
 	}
 	DEBUG(DB_TLB, "page_replace: replacing page %d\n", index);
 	index_last_page_evicted = index;
 	return index;
 }
 
-// #endif /* OPT_RANDPAGE */
-
-// static void set_lastpage_evicted (int index) {
-// 	index_last_page_evicted = index;
-// }
+#endif /* OPT_RANDPAGE */
 
 
 ////////////////////////////////////////////////////////////
