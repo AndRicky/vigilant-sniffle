@@ -366,12 +366,12 @@ uint32_t
 page_replace(void)
 {
     // Complete this function.
-    //createa random index between 0 and of total number of entries in coremap
+    // Create a random index between 0 and of total number of entries in coremap
     unsigned index = random() % (num_coremap_entries -1);
     int count = 1;
-    // if the selected page is pinned or it belong to the kernel, we create another one
+    // if the selected page is pinned or it belong to the kernel, we create another random index
     while(coremap[index].cm_pinned || coremap[index].cm_kernel) {
-    	// Maximum times for trying out random number is 10 for now
+    	// Maximum times for trying out random number is 10000 for now
     	if (count > 10000) {
     		return -1;
     	}
@@ -395,21 +395,28 @@ static
 uint32_t
 page_replace(void)
 {
-	// Complete this function.
+	// We create a index
 	unsigned index = index_last_page_evicted + 1;
+	// if the index is out of the range, we turn it back to 0, which is the first element in the cm.
 	if (index > (num_coremap_entries - 1)) {
 		index = 0;
 	}
+	// if the selected page is pinned or in kernel, we get into the loop and fetch a new index.
 	while (coremap[index].cm_pinned || coremap[index].cm_kernel) {
+		// if the index loop back to the index of last-page that is evicted, which means there is no
+		// suitable page to evict, we will return -1 as error.
 		if (index == index_last_page_evicted) {
 			return -1;
 		}
+		// looping from the bottom to top.
 		index++;
+		// if the index is out of the range, we turn it back to 0, which is the first element in the cm.
 		if (index > (num_coremap_entries  - 1)) {
 			index = 0;
 		}
 	}
 	DEBUG(DB_TLB, "page_replace: replacing page %d\n", index);
+	// After all, we set the index of last-page evicted to our index.
 	index_last_page_evicted = index;
 	return index;
 }
