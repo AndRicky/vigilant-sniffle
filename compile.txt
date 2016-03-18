@@ -64,10 +64,7 @@ bmake
 bmake install
 cp sys161.conf ~/cscc69/root
 cd ~/cscc69/root/
-#get the disk.img
-sys161 kernel "q"
-hostbin/host-mksfs DISK1.img a #a is the volname
-sys161 kernel "mount sfs lhd0"
+sys161 kernel "q" && hostbin/host-mksfs DISK1.img VOLNAME && sys161 kernel "mount sfs lhd0"
 #---------TESTING-------------
 #to be added
 
