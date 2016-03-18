@@ -48,6 +48,10 @@ cp sys161.conf ~/cscc69/root
 cd ~/cscc69/root/
 sys161 kernel
 
+--reset---
+echo 1 > kern/compile/ASST3/version
+
+
 -------A3 ---------------
 cd ~/cscc69/root/
 rm -rf *
