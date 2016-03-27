@@ -958,6 +958,45 @@ sfs_reclaim(struct vnode *v)
 	/* Done */
 	return 0;
 }
+static int sfs_getdirentry(struct vnode *v, struct uio *uio) {
+	struct sfs_vnode *sv = v->vn_data;
+	struct sfs_dir sd;
+	int result;
+	int offset;
+	int nentries = sfs_dir_nentries(sv); //max number of entries
+
+	//check uio_read is valid as we are using it
+	KASSERT(uio->uio_rw==UIO_READ);
+	//aquire lock
+	vfs_biglock_acquire();
+
+	//no point continuing if not a dir
+	if (sv->sv_i.sfi_type != SFS_TYPE_DIR) {
+		vfs_biglock_release();
+		return ENOTDIR
+	}
+
+	//checks each offset and looks for an empty offset slot
+	for (offset = uio->uio_offset; offset < nentries; offset++) {
+		result = sfs_readdir(sv, &sd, offset);
+
+		//found empty and has valid inode number BUT DON'T RETURN YET
+		if (result == 0 && sd.sfd_ino != SFS_NOINO) {
+			result = uiomove(&sd.sfd_name, str(sd.sfd_name), uio);
+			break;
+		}
+	}
+
+	//adjust uio_offset to point to next offset in dir if availible or nentries
+	if (offset == nentries) {
+		uio->uio_offset = offset;
+	} else {
+		uio->uio_offset = offset + 1
+	}
+
+vfs_biglock_release()
+return result;
+}
 
 /*
  * Called for read(). sfs_io() does the work.
@@ -1619,7 +1658,7 @@ static const struct vnode_ops sfs_dirops = {
 	
 	ISDIR,   /* read */
 	ISDIR,   /* readlink */
-	UNIMP,   /* getdirentry */
+	sfs_getdirentry,   /* getdirentry */
 	ISDIR,   /* write */
 	sfs_ioctl,
 	sfs_stat,
