@@ -8,8 +8,19 @@
 #define _FILE_H_
 
 #include <kern/limits.h>
+#include <spinlock.h>
 
 struct vnode;
+
+/*
+ * Entry for file table
+ */
+struct filetable_entry {
+	struct vnode *file_vnode;
+	int ft_flags; //open flags
+	int ft_pos;   //position in file
+	int ft_count; //number of file descriptors to this entry
+};
 
 /*
  * filetable struct
@@ -18,7 +29,9 @@ struct vnode;
  * array of ints is just intended to make the compiler happy.
  */
 struct filetable {
-	int changeme[__OPEN_MAX]; /* dummy type */
+	struct filetable_entry *ft_entries[__OPEN_MAX];
+	struct spinlock filetable_lock;
+	// int changeme[__OPEN_MAX]; /* dummy type */
 };
 
 /* these all have an implicit arg of the curthread's filetable */
