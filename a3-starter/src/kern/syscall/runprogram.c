@@ -94,6 +94,7 @@ runprogram(char *progname)
 		/* thread_exit destroys curthread->t_addrspace */
 		return result;
 	}
+	filetable_init();
 
 	/* Warp to user mode. */
 	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
