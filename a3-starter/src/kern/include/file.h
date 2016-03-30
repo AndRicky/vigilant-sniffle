@@ -13,31 +13,27 @@
 struct vnode;
 
 /*
- * Entry for file table
- */
-struct filetable_entry {
-	struct vnode *file_vnode;
-	int ft_flags; //open flags
-	int ft_pos;   //position in file
-	int ft_count; //number of file descriptors to this entry
-};
-
-/*
  * filetable struct
  * just an array, nice and simple.  
  * It is up to you to design what goes into the array.  The current
  * array of ints is just intended to make the compiler happy.
  */
-struct filetable {
-	struct filetable_entry *ft_entries[__OPEN_MAX]; /* dummy type */
-	struct spinlock ft_spinlock
-};
-
 struct filetable_entry {
 	struct vnode *file_vnode;
-	int flags; //open flags
 	int pos; //position in file
+	int flags; //open flags
 	int count; //number of file descriptors to this entry
+};
+/*
+* filetable struct
+* just an array, nice and simple.
+* It is up to you to design what goes into the array. The current
+* array of ints is just intended to make the compiler happy.
+*/
+struct filetable {
+	struct filetable_entry *ft_entries[__OPEN_MAX];
+	struct spinlock filetable_lock;
+// int changeme[__OPEN_MAX]; /* dummy type */
 };
 
 /* these all have an implicit arg of the curthread's filetable */
