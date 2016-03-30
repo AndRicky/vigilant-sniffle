@@ -179,108 +179,109 @@ sys_dup2(int oldfd, int newfd, int *retval)
  *
  * Most of this code should be replaced.
  */
-int
-sys_read(int fd, userptr_t buf, size_t size, int *retval)
-{
-  // almost same as wrie.
-  // except where the reading/writing is done
-  struct uio user_uio;
-  struct iovec user_iov;
-  int result;
-  int offset = 0;
-
-  // checks if fd is a valid file descriptor.
-  struct filetable *ft = curthread->t_filetable;
-  spinlock_acquire(&ft->filetable_lock);
-
-  // if fd is not a valid file descriptor,
-  // or was not opened for reading, return EBADF
-  if ((fd < 0) || (fd >= __OPEN_MAX) || (ft->ft_entries[fd] == NULL) ||
-      (ft->ft_entries[fd]->file_vnode == NULL)) {
-    spinlock_release(&ft->filetable_lock);
-    return EBADF;
-  }
-
-  int x = ft->ft_entries[fd]->flags & O_ACCMODE;
-  // if it was not opened for reading.
-  if ((x != O_RDONLY) && (x != O_RDWR)) {
-    spinlock_release(&ft->filetable_lock);
-    return EBADF;
-  }
-
-  // set up a uio with the buffer, its size, and the current offset
-  offset = ft->ft_entries[fd]->pos;
-  mk_useruio(&user_iov, &user_uio, buf, size, offset, UIO_READ);
-
-  // does the read
-
-  spinlock_release(&ft->filetable_lock);
-  result = VOP_READ(ft->ft_entries[fd]->file_vnode, &user_uio);
-  if (result) {
-    return result;
-  }
-
-  // The amount read is the size of the buffer originally, minus
-  //how much is left in it.
-  *retval = size - user_uio.uio_resid;
-
-  spinlock_acquire(&ft->filetable_lock);
-  // update file seeking position
-  ft->ft_entries[fd]->pos += *retval;
-  spinlock_release(&ft->filetable_lock);
-  return 0;
-}
 // int
 // sys_read(int fd, userptr_t buf, size_t size, int *retval)
 // {
+//   // almost same as wrie.
+//   // except where the reading/writing is done
 //   struct uio user_uio;
 //   struct iovec user_iov;
 //   int result;
+//   int offset = 0;
 
-//   // Check fd is a valid file handle
-//   if ((fd < 0) || (fd >= __OPEN_MAX)){
-//     return EBADF;
-//   }
+//   // checks if fd is a valid file descriptor.
 //   struct filetable *ft = curthread->t_filetable;
 //   spinlock_acquire(&ft->filetable_lock);
 
-//   // Check fd is a valid file handle in filetable and the vnode is not empty
-//   if ((ft->ft_entries[fd] == NULL) || (ft->ft_entries[fd]->file_vnode == NULL)) {
+//   // if fd is not a valid file descriptor,
+//   // or was not opened for reading, return EBADF
+//   if ((fd < 0) || (fd >= __OPEN_MAX) || (ft->ft_entries[fd] == NULL) ||
+//       (ft->ft_entries[fd]->file_vnode == NULL)) {
 //     spinlock_release(&ft->filetable_lock);
 //     return EBADF;
 //   }
 
-//   // Check the file handle has the permission to read
-//   int fl = ft->ft_entries[fd]->flags & O_ACCMODE;
-//   if ((fl != O_RDONLY) && (fl != O_RDWR)) {
+//   int x = ft->ft_entries[fd]->flags & O_ACCMODE;
+//   // if it was not opened for reading.
+//   if ((x != O_RDONLY) && (x != O_RDWR)) {
 //     spinlock_release(&ft->filetable_lock);
 //     return EBADF;
 //   }
 
-//   // Init the offset by the position of the file handle
-//   int offset = ft->ft_entries[fd]->pos;
-
-//   /* set up a uio with the buffer, its size, and the current offset */
+//   // set up a uio with the buffer, its size, and the current offset
+//   offset = ft->ft_entries[fd]->pos;
 //   mk_useruio(&user_iov, &user_uio, buf, size, offset, UIO_READ);
 
-//   /* does the read */
+//   // does the read
+
+//   spinlock_release(&ft->filetable_lock);
 //   result = VOP_READ(ft->ft_entries[fd]->file_vnode, &user_uio);
 //   if (result) {
-//     spinlock_release(&ft->filetable_lock);
 //     return result;
 //   }
 
-//   /*
-//    * The amount read is the size of the buffer originally, minus
-//    * how much is left in it.
-//    */
+//   // The amount read is the size of the buffer originally, minus
+//   //how much is left in it.
 //   *retval = size - user_uio.uio_resid;
 
+//   spinlock_acquire(&ft->filetable_lock);
+//   // update file seeking position
 //   ft->ft_entries[fd]->pos += *retval;
 //   spinlock_release(&ft->filetable_lock);
-
 //   return 0;
 // }
+int
+sys_read(int fd, userptr_t buf, size_t size, int *retval)
+{
+  struct uio user_uio;
+  struct iovec user_iov;
+  int result;
+
+  // Check fd is a valid file handle
+  if ((fd < 0) || (fd >= __OPEN_MAX)){
+    return EBADF;
+  }
+  struct filetable *ft = curthread->t_filetable;
+  spinlock_acquire(&ft->filetable_lock);
+
+  // Check fd is a valid file handle in filetable and the vnode is not empty
+  if ((ft->ft_entries[fd] == NULL) || (ft->ft_entries[fd]->file_vnode == NULL)) {
+    spinlock_release(&ft->filetable_lock);
+    return EBADF;
+  }
+
+  // Check the file handle has the permission to read
+  int fl = ft->ft_entries[fd]->flags & O_ACCMODE;
+  if ((fl != O_RDONLY) && (fl != O_RDWR)) {
+    spinlock_release(&ft->filetable_lock);
+    return EBADF;
+  }
+
+  // Init the offset by the position of the file handle
+  int offset = ft->ft_entries[fd]->pos;
+
+  /* set up a uio with the buffer, its size, and the current offset */
+  mk_useruio(&user_iov, &user_uio, buf, size, offset, UIO_READ);
+  // before read you do the vop_read you have to release the lock
+  spinlock_release(&ft->filetable_lock);
+  /* does the read */
+  result = VOP_READ(ft->ft_entries[fd]->file_vnode, &user_uio);
+  if (result) {
+    spinlock_release(&ft->filetable_lock);
+    return result;
+  }
+
+  /*
+   * The amount read is the size of the buffer originally, minus
+   * how much is left in it.
+   */
+  *retval = size - user_uio.uio_resid;
+
+  ft->ft_entries[fd]->pos += *retval;
+  spinlock_release(&ft->filetable_lock);
+
+  return 0;
+}
 
 /*
  * sys_write
